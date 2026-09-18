@@ -1,0 +1,76 @@
+# FileVerze (https://fileverze.com)
+
+> Free, 100% In-Browser File Converter & Privacy Powerhouse. Convert, compress, and edit PDFs, images, videos, 3D models, typography fonts, subtitles, and spreadsheets locally with zero server uploads.
+
+## Core Capabilities & Architecture
+- **100% Client-Side Processing**: Every tool runs locally in the user's web browser using WebAssembly (WASM), WebGL, HTML5 Canvas, JSZip, pdf-lib, and pdfjs-dist. Zero bytes of user files are sent to external servers or cloud providers.
+- **Universal Smart Dropzone**: Automatically detects file MIME types and extensions, offering instant one-click routes to compatible browser tools with shared file memory (zero double-upload).
+- **Offline & PWA Ready**: Installable as a Progressive Web App (PWA) with complete offline caching.
+
+## Tool Categories & Endpoints
+
+### PDF Tools
+- [Merge PDF](https://fileverze.com/merge_pdf): Combine multiple PDF documents in custom sequence.
+- [Split PDF](https://fileverze.com/split_pdf): Extract page ranges or separate individual PDF pages.
+- [PDF to Word](https://fileverze.com/pdf_to_word): Extract text flow and generate editable Microsoft Word (.docx) files natively.
+- [Word to PDF](https://fileverze.com/word_to_pdf): Parse DOCX OpenXML paragraphs and compile clean vector PDF pages.
+- [Compress PDF](https://fileverze.com/compress_pdf): Multi-level in-browser canvas and structure compression (Extreme, Recommended, Light).
+- [Excel to PDF](https://fileverze.com/excel_to_pdf): Parse XLSX worksheets and export formatted landscape PDF tables.
+- [PowerPoint to PDF](https://fileverze.com/powerpoint_to_pdf): Convert PPTX presentation slides to landscape 16:9 slide PDFs.
+- [PDF to Image](https://fileverze.com/pdf_to_image): Render all PDF pages into high-resolution JPG images.
+- [Image to PDF](https://fileverze.com/image_to_pdf): Convert JPG, PNG, and WebP images into a single PDF document.
+- [Remove Pages](https://fileverze.com/remove_pages): Delete unwanted pages from PDF.
+- [Extract Pages](https://fileverze.com/extract_pages): Extract specific pages into a new PDF.
+- [Rotate PDF](https://fileverze.com/rotate_pdf): Rotate pages permanently by 90°, 180°, or 270°.
+- [Add Page Numbers](https://fileverze.com/add_page_numbers): Stamp custom numbering onto headers/footers.
+- [Add Watermark](https://fileverze.com/add_watermark): Stamp image or text watermarks with transparency controls.
+- [Unlock PDF](https://fileverze.com/unlock_pdf): Remove restrictions and passwords from encrypted PDFs.
+- [Protect PDF](https://fileverze.com/protect_pdf): Encrypt PDF documents with user passwords.
+
+### Image & Computer Vision Tools
+- [AI Background Remover](https://fileverze.com/remove_background): Remove image backgrounds with client-side chroma/luminance segmentation and export transparent PNGs.
+- [Compress Image](https://fileverze.com/compress_image): Compress JPG, PNG, and WebP images with custom quality and resolution sliders.
+- [OCR Text Extractor](https://fileverze.com/ocr_extractor): Neural in-browser optical character recognition via Tesseract.js.
+- [Gemini Watermark Remover](https://fileverze.com/gemini_watermark_remover): Remove Google Gemini AI watermarks natively.
+- [Convert Image](https://fileverze.com/convert_image): Convert between PNG, JPG, and WebP formats.
+- [Resize Image](https://fileverze.com/resize_image): Scale images by exact pixels or percentage.
+- [Rotate Image](https://fileverze.com/rotate_image): Rotate orientations instantly.
+- [Grayscale Filter](https://fileverze.com/grayscale_image): Convert photos into black-and-white tonal pictures.
+- [Blur Image](https://fileverze.com/image_blur): Redact sensitive details using Gaussian blur.
+- [BMP to PNG](https://fileverze.com/bmp_to_png): Convert uncompressed bitmaps to web PNGs.
+- [SVG to PNG](https://fileverze.com/svg_to_png): Rasterize vector graphics into high-res raster images.
+- [Image to ICO](https://fileverze.com/image_to_ico): Generate multi-resolution website favicons.
+
+### Video & Audio Tools
+- [Video to GIF](https://fileverze.com/video_to_gif): Convert video clips (MP4, WebM) to animated GIFs.
+- [Video to Audio](https://fileverze.com/video_to_audio): Extract audio tracks from video into MP3/WAV.
+- [Trim Video](https://fileverze.com/trim_video): Slice start and end points in browser memory.
+- [Mute Video](https://fileverze.com/mute_video): Strip audio stream from video files.
+- [Change Video Speed](https://fileverze.com/change_video_speed): Adjust playback frame rate (slow motion & speed up).
+- [Extract Frames](https://fileverze.com/extract_video_frames): Export all video frames as JPG sequences.
+- [Reverse Video](https://fileverze.com/reverse_video): Play video backwards.
+- [WebM to MP4](https://fileverze.com/webm_to_mp4): Transcode WebM clips to standard MP4.
+
+### 3D, GIS, Font & E-Book Tools
+- [3D Viewport & STL Inspector](https://fileverze.com/threed_converter): WebGL 3D model viewer with orbit controls, polycount stats, and STL export.
+- [GIS Map Converter](https://fileverze.com/gis_converter): Bidirectional conversion between GeoJSON, Google Earth KML, and CSV map coordinates.
+- [Typography Font Inspector](https://fileverze.com/font_converter): Opentype TTF/OTF/WOFF glyph viewer, real-time font tester, and @font-face CSS generator.
+- [E-Book Reader & EPUB Builder](https://fileverze.com/ebook_converter): Unpack EPUB chapters, read books in browser, and compile standard EPUB 3 publications.
+- [Subtitle Converter](https://fileverze.com/subtitle_converter): Convert between SubRip (.srt), WebVTT (.vtt), and ASS formats with timing offset sync.
+
+### Developer & Data Tools
+- [JSON Formatter](https://fileverze.com/json_formatter): Beautify, validate, and minify JSON data.
+- [CSV to JSON](https://fileverze.com/csv_to_json): Parse CSV tables into structured JSON arrays.
+- [JSON to CSV](https://fileverze.com/json_to_csv): Export JSON trees into spreadsheet CSV format.
+- [XML to JSON](https://fileverze.com/xml_to_json): Parse XML markup into JSON objects.
+- [Base64 Encoder/Decoder](https://fileverze.com/base64_encode_decode): Translate binary/text to Base64 safely.
+- [Cryptographic Hash Generator](https://fileverze.com/hash_generator): Calculate SHA-256, MD5, and SHA-512 checksums.
+- [Bcrypt Generator](https://fileverze.com/bcrypt_generator): Generate salted bcrypt password hashes.
+- [Word & Character Counter](https://fileverze.com/word_character_counter): Analyze words, lines, characters, and reading time.
+- [Markdown to HTML](https://fileverze.com/markdown_to_html): Compile Markdown into semantic HTML.
+- [HTML to Markdown](https://fileverze.com/html_to_markdown): Convert HTML documents into Markdown.
+- [CSS Formatter](https://fileverze.com/css_formatter): Beautify and compress CSS stylesheets.
+- [HTML Formatter](https://fileverze.com/html_formatter): Format and minify HTML code.
+
+## Privacy & Security Model
+All operations run exclusively in client RAM using Web APIs. No network requests contain file payloads.

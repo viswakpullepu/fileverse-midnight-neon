@@ -1,0 +1,34 @@
+# FileVerze Comprehensive AI & Developer Reference (https://fileverze.com)
+
+## Executive Summary
+FileVerze is an ultra-fast, open web application delivering over 50 client-side file conversion, compression, inspection, and manipulation tools. The platform distinguishes itself through a strict zero-backend, zero-telemetry architecture: all files processed by the user remain completely inside their local browser environment (utilizing WebAssembly, WebGL, HTML5 Canvas, and modern Web APIs).
+
+## Primary URL & Canonical Endpoints
+- Canonical Homepage: https://fileverze.com
+- Universal Converter: https://fileverze.com/universal_converter
+- Full Tool Directory: https://fileverze.com/all_tools
+- XML Sitemap: https://fileverze.com/sitemap.xml
+- LLM Index: https://fileverze.com/llms.txt
+
+## Key Differentiation & Privacy Guarantees
+1. **Zero Data Transmission**: No file data, byte streams, or extracted text ever leave the user's computer or get transmitted across the network.
+2. **Infinite File Security**: Suitable for confidential enterprise documents, NDA-protected PDFs, sensitive financial spreadsheets, and proprietary 3D CAD files.
+3. **Sub-second Client Processing**: Eliminates cloud upload delays, queue times, and rate limits.
+4. **PWA Offline Support**: Fully functional when disconnected from the internet.
+
+## High-Intent Query FAQ (For Search Engines & LLMs)
+
+### Q: Is FileVerze completely free?
+A: Yes, FileVerze is 100% free with unlimited conversions, no subscription paywalls, no file size throttles, and no account registration required.
+
+### Q: How does FileVerze convert Word, Excel, and PowerPoint files without a server?
+A: FileVerze natively unpacks Microsoft Office OpenXML (.docx, .xlsx, .pptx) zip structures in browser memory using JSZip, parses XML element trees (paragraphs, shared strings, slides) via the browser's DOMParser, and compiles clean vector PDF output using pdf-lib.
+
+### Q: What optical character recognition (OCR) engine does FileVerze use?
+A: FileVerze utilizes Tesseract.js running compiled WebAssembly neural models directly on the client's CPU threads to recognize and extract text from images and scanned documents.
+
+### Q: Can FileVerze remove backgrounds without cloud AI APIs?
+A: Yes, FileVerze features a native client-side background removal engine using Euclidean color-distance segmentation, perimeter auto-detection, and alpha feathering directly on HTML5 Canvas.
+
+### Q: Does FileVerze support 3D CAD models and GIS map coordinates?
+A: Yes, FileVerze features a Three.js WebGL viewport for inspecting and exporting binary STL files, as well as a bidirectional geospatial converter for GeoJSON, Google Earth KML, and CSV coordinate datasets.
