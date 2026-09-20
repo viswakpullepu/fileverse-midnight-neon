@@ -40,59 +40,70 @@ export default function BatchPhotoStudio({ files = [], onRemoveFile, onAddMore, 
       if (activeTab === 'pdf') {
         setStatusText('Initializing PDF document in browser memory...');
         const pdfDoc = await PDFDocument.create();
+        const CONCURRENCY = 4;
+        let completedCount = 0;
 
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i];
-          setStatusText(`Embedding photo ${i + 1} of ${files.length}: ${file.name}...`);
-          setProgress(Math.round(((i + 1) / files.length) * 85));
+        // Helper to prepare an image for PDF embedding with downscaling for large camera shots
+        const prepareImageForPdf = async (file) => {
+          try {
+            const bitmap = await createImageBitmap(file);
+            const MAX_DIM = 2048; // Max resolution for PDF page to maintain top print quality without memory bloat
+            let width = bitmap.width;
+            let height = bitmap.height;
 
-          const arrayBuffer = await file.arrayBuffer();
-          let embeddedImage;
-
-          if (file.type === 'image/png' || file.name.toLowerCase().endsWith('.png')) {
-            try {
-              embeddedImage = await pdfDoc.embedPng(arrayBuffer);
-            } catch {
-              const bitmap = await createImageBitmap(file);
-              const canvas = document.createElement('canvas');
-              canvas.width = bitmap.width;
-              canvas.height = bitmap.height;
-              const ctx = canvas.getContext('2d');
-              ctx.drawImage(bitmap, 0, 0);
-              bitmap.close();
-              const jpgBlob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.9));
-              const jpgBytes = await jpgBlob.arrayBuffer();
-              embeddedImage = await pdfDoc.embedJpg(jpgBytes);
+            if (width > MAX_DIM || height > MAX_DIM) {
+              const ratio = Math.min(MAX_DIM / width, MAX_DIM / height);
+              width = Math.round(width * ratio);
+              height = Math.round(height * ratio);
             }
-          } else {
-            try {
-              embeddedImage = await pdfDoc.embedJpg(arrayBuffer);
-            } catch {
-              const bitmap = await createImageBitmap(file);
-              const canvas = document.createElement('canvas');
-              canvas.width = bitmap.width;
-              canvas.height = bitmap.height;
-              const ctx = canvas.getContext('2d');
-              ctx.drawImage(bitmap, 0, 0);
-              bitmap.close();
-              const jpgBlob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.9));
-              const jpgBytes = await jpgBlob.arrayBuffer();
-              embeddedImage = await pdfDoc.embedJpg(jpgBytes);
-            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, width, height);
+            ctx.drawImage(bitmap, 0, 0, width, height);
+            bitmap.close();
+
+            const jpgBlob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.88));
+            const jpgBytes = await jpgBlob.arrayBuffer();
+            return { jpgBytes, width, height, success: true };
+          } catch (err) {
+            console.warn(`Failed to process ${file.name} for PDF:`, err);
+            return { success: false, fileName: file.name };
           }
+        };
 
-          const { width, height } = embeddedImage;
-          const page = pdfDoc.addPage([width, height]);
+        // Process images in concurrent batches of 4
+        const preparedImages = [];
+        for (let batchStart = 0; batchStart < files.length; batchStart += CONCURRENCY) {
+          const batch = files.slice(batchStart, batchStart + CONCURRENCY);
+          const batchResults = await Promise.all(batch.map(prepareImageForPdf));
+          preparedImages.push(...batchResults);
+          completedCount += batch.length;
+          setProgress(Math.round((completedCount / files.length) * 80));
+          setStatusText(`Prepared ${completedCount} of ${files.length} photos for PDF...`);
+        }
+
+        // Embed prepared images into PDF sequentially into pages
+        setStatusText('Assembling PDF document pages...');
+        for (let i = 0; i < preparedImages.length; i++) {
+          const item = preparedImages[i];
+          if (!item.success) continue;
+          const embeddedImage = await pdfDoc.embedJpg(item.jpgBytes);
+          const page = pdfDoc.addPage([item.width, item.height]);
           page.drawImage(embeddedImage, {
             x: 0,
             y: 0,
-            width,
-            height,
+            width: item.width,
+            height: item.height,
           });
+          setProgress(80 + Math.round(((i + 1) / preparedImages.length) * 15));
         }
 
-        setStatusText('Finalizing encrypted PDF document...');
-        const pdfBytes = await pdfDoc.save();
+        setStatusText('Optimizing & finalizing PDF document...');
+        const pdfBytes = await pdfDoc.save({ useObjectStreams: true });
         const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
         const url = URL.createObjectURL(pdfBlob);
 
@@ -114,51 +125,56 @@ export default function BatchPhotoStudio({ files = [], onRemoveFile, onAddMore, 
         const CONCURRENCY = 4;
 
         const processOneImage = async (file) => {
-          const bitmap = await createImageBitmap(file);
+          try {
+            const bitmap = await createImageBitmap(file);
 
-          let outWidth = bitmap.width;
-          let outHeight = bitmap.height;
-          let outMime = targetFormat;
-          let outQuality = compressQuality;
-          let outExt = 'webp';
+            let outWidth = bitmap.width;
+            let outHeight = bitmap.height;
+            let outMime = targetFormat;
+            let outQuality = compressQuality;
+            let outExt = 'webp';
 
-          if (activeTab === 'compress') {
-            outMime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
-            if (outMime === 'image/png' && compressQuality < 0.7) {
-              outMime = 'image/webp';
+            if (activeTab === 'compress') {
+              outMime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+              if (outMime === 'image/png' && compressQuality < 0.7) {
+                outMime = 'image/webp';
+              }
+              outExt = outMime === 'image/webp' ? 'webp' : (outMime === 'image/png' ? 'png' : 'jpg');
+            } else if (activeTab === 'convert') {
+              outMime = targetFormat;
+              outExt = targetFormat === 'image/webp' ? 'webp' : (targetFormat === 'image/jpeg' ? 'jpg' : 'png');
+              outQuality = 0.92;
+            } else if (activeTab === 'resize') {
+              outWidth = Math.max(1, Math.round(bitmap.width * resizeScale));
+              outHeight = Math.max(1, Math.round(bitmap.height * resizeScale));
+              outMime = file.type || 'image/jpeg';
+              outExt = outMime.includes('png') ? 'png' : (outMime.includes('webp') ? 'webp' : 'jpg');
+              outQuality = 0.90;
+            } else if (activeTab === 'exif') {
+              outMime = file.type || 'image/jpeg';
+              outExt = outMime.includes('png') ? 'png' : (outMime.includes('webp') ? 'webp' : 'jpg');
+              outQuality = 0.95;
             }
-            outExt = outMime === 'image/webp' ? 'webp' : (outMime === 'image/png' ? 'png' : 'jpg');
-          } else if (activeTab === 'convert') {
-            outMime = targetFormat;
-            outExt = targetFormat === 'image/webp' ? 'webp' : (targetFormat === 'image/jpeg' ? 'jpg' : 'png');
-            outQuality = 0.92;
-          } else if (activeTab === 'resize') {
-            outWidth = Math.max(1, Math.round(bitmap.width * resizeScale));
-            outHeight = Math.max(1, Math.round(bitmap.height * resizeScale));
-            outMime = file.type || 'image/jpeg';
-            outExt = outMime.includes('png') ? 'png' : (outMime.includes('webp') ? 'webp' : 'jpg');
-            outQuality = 0.90;
-          } else if (activeTab === 'exif') {
-            outMime = file.type || 'image/jpeg';
-            outExt = outMime.includes('png') ? 'png' : (outMime.includes('webp') ? 'webp' : 'jpg');
-            outQuality = 0.95;
+
+            const canvas = document.createElement('canvas');
+            canvas.width = outWidth;
+            canvas.height = outHeight;
+            const ctx = canvas.getContext('2d', { alpha: outMime !== 'image/jpeg', desynchronized: true });
+
+            if (outMime === 'image/jpeg') {
+              ctx.fillStyle = '#ffffff';
+              ctx.fillRect(0, 0, outWidth, outHeight);
+            }
+
+            ctx.drawImage(bitmap, 0, 0, outWidth, outHeight);
+            bitmap.close();
+
+            const blob = await new Promise((res) => canvas.toBlob(res, outMime, outQuality));
+            return { file, blob, outExt, success: true };
+          } catch (err) {
+            console.warn(`Error processing ${file.name}:`, err);
+            return { file, success: false };
           }
-
-          const canvas = document.createElement('canvas');
-          canvas.width = outWidth;
-          canvas.height = outHeight;
-          const ctx = canvas.getContext('2d', { alpha: outMime !== 'image/jpeg', desynchronized: true });
-
-          if (outMime === 'image/jpeg') {
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, outWidth, outHeight);
-          }
-
-          ctx.drawImage(bitmap, 0, 0, outWidth, outHeight);
-          bitmap.close();
-
-          const blob = await new Promise((res) => canvas.toBlob(res, outMime, outQuality));
-          return { file, blob, outExt };
         };
 
         // Process files in concurrent batches of CONCURRENCY
@@ -166,8 +182,8 @@ export default function BatchPhotoStudio({ files = [], onRemoveFile, onAddMore, 
           const batch = files.slice(batchStart, batchStart + CONCURRENCY);
           const results = await Promise.all(batch.map(processOneImage));
 
-          for (const { file, blob, outExt } of results) {
-            if (blob) {
+          for (const { file, blob, outExt, success } of results) {
+            if (success && blob) {
               processedBytesTotal += blob.size;
               const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
               zip.file(`${baseName}_edited.${outExt}`, blob);

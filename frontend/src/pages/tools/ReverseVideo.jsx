@@ -74,6 +74,9 @@ export default function ReverseVideo() {
       // -af areverse reverses audio
       await ffmpeg.exec([
         '-i', 'input.mp4',
+        '-c:v', 'libx264',
+        '-preset', 'ultrafast',
+        '-crf', '26',
         '-vf', 'reverse',
         '-af', 'areverse',
         'output.mp4'
@@ -89,7 +92,15 @@ export default function ReverseVideo() {
       // Fallback if no audio track exists
       try {
         const ffmpeg = ffmpegRef.current;
-        await ffmpeg.exec(['-i', 'input.mp4', '-vf', 'reverse', '-an', 'output.mp4']);
+        await ffmpeg.exec([
+          '-i', 'input.mp4',
+          '-c:v', 'libx264',
+          '-preset', 'ultrafast',
+          '-crf', '26',
+          '-vf', 'reverse',
+          '-an',
+          'output.mp4'
+        ]);
         const data = await ffmpeg.readFile('output.mp4');
         const blob = new Blob([data.buffer], { type: 'video/mp4' });
         const url = URL.createObjectURL(blob);
@@ -98,6 +109,13 @@ export default function ReverseVideo() {
         alert('Failed to process video. Memory limit may have been reached for large videos.');
       }
     } finally {
+      try {
+        const ffmpeg = ffmpegRef.current;
+        if (typeof ffmpeg.deleteFile === 'function') {
+          await ffmpeg.deleteFile('input.mp4');
+          await ffmpeg.deleteFile('output.mp4');
+        }
+      } catch (e) {}
       setIsProcessing(false);
       setProgress(0);
     }

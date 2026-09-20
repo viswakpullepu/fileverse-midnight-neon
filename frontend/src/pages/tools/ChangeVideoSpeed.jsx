@@ -81,6 +81,9 @@ export default function ChangeVideoSpeed() {
       
       await ffmpeg.exec([
         '-i', 'input.mp4',
+        '-c:v', 'libx264',
+        '-preset', 'ultrafast',
+        '-crf', '26',
         '-filter_complex', `[0:v]setpts=${videoPts}*PTS[v];[0:a]${audioFilter}[a]`,
         '-map', '[v]',
         '-map', '[a]',
@@ -98,7 +101,15 @@ export default function ChangeVideoSpeed() {
       try {
         const ffmpeg = ffmpegRef.current;
         const videoPts = 1 / parseFloat(speed);
-        await ffmpeg.exec(['-i', 'input.mp4', '-filter:v', `setpts=${videoPts}*PTS`, '-an', 'output.mp4']);
+        await ffmpeg.exec([
+          '-i', 'input.mp4',
+          '-c:v', 'libx264',
+          '-preset', 'ultrafast',
+          '-crf', '26',
+          '-filter:v', `setpts=${videoPts}*PTS`,
+          '-an',
+          'output.mp4'
+        ]);
         const data = await ffmpeg.readFile('output.mp4');
         const blob = new Blob([data.buffer], { type: 'video/mp4' });
         const url = URL.createObjectURL(blob);
@@ -107,6 +118,13 @@ export default function ChangeVideoSpeed() {
         alert('Failed to process video.');
       }
     } finally {
+      try {
+        const ffmpeg = ffmpegRef.current;
+        if (typeof ffmpeg.deleteFile === 'function') {
+          await ffmpeg.deleteFile('input.mp4');
+          await ffmpeg.deleteFile('output.mp4');
+        }
+      } catch (e) {}
       setIsProcessing(false);
       setProgress(0);
     }

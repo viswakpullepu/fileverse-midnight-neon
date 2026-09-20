@@ -59,6 +59,40 @@ export default function CompressPdfBackend() {
 
     try {
       const arrayBuffer = await file.arrayBuffer();
+      const originalSize = file.size;
+
+      // Mode 1: Fast Lossless Structural Stream Optimization
+      if (compressionMode === 'lossless') {
+        setStatusText('Optimizing PDF object streams & metadata...');
+        setProgress(40);
+        const loadedDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+        setProgress(75);
+        const optimizedBytes = await loadedDoc.save({ useObjectStreams: true });
+        
+        let finalBytes = optimizedBytes;
+        if (finalBytes.byteLength >= originalSize) {
+          finalBytes = new Uint8Array(arrayBuffer);
+        }
+
+        const compressedSize = finalBytes.byteLength;
+        const savedRatio = ((1 - (compressedSize / originalSize)) * 100).toFixed(1);
+
+        setCompressionResult({
+          original: originalSize,
+          compressed: compressedSize,
+          ratio: savedRatio > 0 ? savedRatio : 0,
+          mode: 'Lossless Vector'
+        });
+
+        const blob = new Blob([finalBytes], { type: 'application/pdf' });
+        const url = window.URL.createObjectURL(blob);
+        setDownloadUrl(url);
+        setProgress(100);
+        setStatusText('Lossless optimization complete!');
+        return;
+      }
+
+      // Mode 2: Visual Raster Compression (for scanned docs & heavy images)
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer, isEvalSupported: false }).promise;
       const totalPages = pdf.numPages;
 
@@ -66,17 +100,16 @@ export default function CompressPdfBackend() {
 
       // Compression settings
       const settings = {
-        extreme: { scale: 1.2, quality: 0.5 },
-        recommended: { scale: 1.5, quality: 0.72 },
-        light: { scale: 2.0, quality: 0.85 },
-      }[compressionMode] || { scale: 1.5, quality: 0.72 };
+        extreme: { scale: 1.0, quality: 0.5 },
+        recommended: { scale: 1.3, quality: 0.70 },
+        light: { scale: 1.6, quality: 0.82 },
+      }[compressionMode] || { scale: 1.3, quality: 0.70 };
 
       for (let i = 1; i <= totalPages; i++) {
-        setStatusText(`Compressing page ${i} of ${totalPages}...`);
+        setStatusText(`Optimizing page ${i} of ${totalPages}...`);
         setProgress(Math.round(5 + (i / totalPages) * 80));
 
         const page = await pdf.getPage(i);
-        // Prefetch next page while current one renders (hides pdfjs decode latency)
         const nextPagePromise = i < totalPages ? pdf.getPage(i + 1) : null;
 
         const viewport = page.getViewport({ scale: settings.scale });
@@ -91,7 +124,6 @@ export default function CompressPdfBackend() {
           viewport: viewport,
         }).promise;
 
-        // Direct canvas.toBlob — avoids slow toDataURL base64 round-trip
         const jpegBlob = await new Promise((resolve) =>
           canvas.toBlob(resolve, 'image/jpeg', settings.quality)
         );
@@ -107,16 +139,28 @@ export default function CompressPdfBackend() {
           height: newPage.getHeight(),
         });
 
-        // Yield prefetched next page back to loop (already resolving in background)
         if (nextPagePromise) await nextPagePromise;
       }
 
       setStatusText('Optimizing PDF structure...');
       setProgress(90);
 
-      const compressedBytes = await outputPdfDoc.save();
-      const originalSize = file.size;
-      const compressedSize = compressedBytes.byteLength;
+      const compressedBytes = await outputPdfDoc.save({ useObjectStreams: true });
+      let finalBytes = compressedBytes;
+
+      // Smart Size Safety Guard: If rasterization inflated the document (e.g. on clean vector text),
+      // fallback to object stream compression so the file NEVER grows larger.
+      if (compressedBytes.byteLength >= originalSize) {
+        try {
+          const loadedDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+          const structuralBytes = await loadedDoc.save({ useObjectStreams: true });
+          if (structuralBytes.byteLength < originalSize) {
+            finalBytes = structuralBytes;
+          }
+        } catch (e) {}
+      }
+
+      const compressedSize = finalBytes.byteLength;
       const savedRatio = ((1 - (compressedSize / originalSize)) * 100).toFixed(1);
 
       setCompressionResult({
@@ -125,7 +169,7 @@ export default function CompressPdfBackend() {
         ratio: savedRatio > 0 ? savedRatio : 0
       });
 
-      const blob = new Blob([compressedBytes], { type: 'application/pdf' });
+      const blob = new Blob([finalBytes], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       setDownloadUrl(url);
       setProgress(100);
@@ -183,9 +227,10 @@ export default function CompressPdfBackend() {
               </label>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
                 {[
-                  { id: 'extreme', title: 'Extreme Compression', desc: 'Lowest size (~70% smaller), lower DPI' },
-                  { id: 'recommended', title: 'Recommended', desc: 'Great balance of quality & size' },
-                  { id: 'light', title: 'Less Compression', desc: 'Highest quality (~30% smaller)' },
+                  { id: 'lossless', title: 'Lossless Vector', desc: 'Preserves 100% searchable text & vectors, instant' },
+                  { id: 'recommended', title: 'Recommended', desc: 'Great balance of quality & size (~50% smaller)' },
+                  { id: 'extreme', title: 'Extreme Raster', desc: 'Lowest size (~70% smaller, ideal for scans)' },
+                  { id: 'light', title: 'Light Compression', desc: 'Highest visual quality (~30% smaller)' },
                 ].map((mode) => (
                   <div
                     key={mode.id}

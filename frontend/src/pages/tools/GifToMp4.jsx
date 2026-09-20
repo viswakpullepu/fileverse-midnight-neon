@@ -69,8 +69,17 @@ export default function GifToMp4() {
       const ffmpeg = ffmpegRef.current;
       await ffmpeg.writeFile('input.gif', await fetchFile(file));
       
-      // Convert GIF to MP4. Using standard h264 encoding and ensuring even dimensions for compatibility.
-      await ffmpeg.exec(['-i', 'input.gif', '-movflags', 'faststart', '-pix_fmt', 'yuv420p', '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2', 'output.mp4']);
+      // Convert GIF to MP4 with ultrafast encoding and even dimensions
+      await ffmpeg.exec([
+        '-i', 'input.gif',
+        '-c:v', 'libx264',
+        '-preset', 'ultrafast',
+        '-crf', '26',
+        '-movflags', 'faststart',
+        '-pix_fmt', 'yuv420p',
+        '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2',
+        'output.mp4'
+      ]);
       
       const data = await ffmpeg.readFile('output.mp4');
       const blob = new Blob([data.buffer], { type: 'video/mp4' });
@@ -81,6 +90,13 @@ export default function GifToMp4() {
       console.error('Error converting GIF to MP4:', error);
       alert('Failed to convert GIF. Ensure the file is valid.');
     } finally {
+      try {
+        const ffmpeg = ffmpegRef.current;
+        if (typeof ffmpeg.deleteFile === 'function') {
+          await ffmpeg.deleteFile('input.gif');
+          await ffmpeg.deleteFile('output.mp4');
+        }
+      } catch (e) {}
       setIsProcessing(false);
       setProgress(0);
     }

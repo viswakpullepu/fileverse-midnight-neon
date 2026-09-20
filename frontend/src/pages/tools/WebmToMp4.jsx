@@ -69,8 +69,16 @@ export default function WebmToMp4() {
       const ffmpeg = ffmpegRef.current;
       await ffmpeg.writeFile('input.webm', await fetchFile(file));
       
-      // Convert WEBM to MP4 strictly copying codecs if compatible or encoding to standard h264/aac
-      await ffmpeg.exec(['-i', 'input.webm', '-c:v', 'libx264', '-c:a', 'aac', '-strict', 'experimental', 'output.mp4']);
+      // Convert WEBM to MP4 with ultrafast software preset for fast in-browser WASM processing
+      await ffmpeg.exec([
+        '-i', 'input.webm',
+        '-c:v', 'libx264',
+        '-preset', 'ultrafast',
+        '-crf', '26',
+        '-c:a', 'aac',
+        '-strict', 'experimental',
+        'output.mp4'
+      ]);
       
       const data = await ffmpeg.readFile('output.mp4');
       const blob = new Blob([data.buffer], { type: 'video/mp4' });
@@ -81,6 +89,13 @@ export default function WebmToMp4() {
       console.error('Error converting WEBM to MP4:', error);
       alert('Failed to convert video. Ensure the file is valid.');
     } finally {
+      try {
+        const ffmpeg = ffmpegRef.current;
+        if (typeof ffmpeg.deleteFile === 'function') {
+          await ffmpeg.deleteFile('input.webm');
+          await ffmpeg.deleteFile('output.mp4');
+        }
+      } catch (e) {}
       setIsProcessing(false);
       setProgress(0);
     }

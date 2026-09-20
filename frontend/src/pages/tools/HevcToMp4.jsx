@@ -104,8 +104,15 @@ export default function HevcToMp4() {
       const ffmpeg = ffmpegRef.current;
       await ffmpeg.writeFile('input_hevc_video', await fetchFile(file));
       
-      // Convert HEVC/H265 to standard H264 MP4
-      await ffmpeg.exec(['-i', 'input_hevc_video', '-c:v', 'libx264', '-c:a', 'aac', 'output.mp4']);
+      // Convert HEVC/H265 to standard H264 MP4 with ultrafast preset for browser WebAssembly speed
+      await ffmpeg.exec([
+        '-i', 'input_hevc_video',
+        '-c:v', 'libx264',
+        '-preset', 'ultrafast',
+        '-crf', '26',
+        '-c:a', 'aac',
+        'output.mp4'
+      ]);
       
       const data = await ffmpeg.readFile('output.mp4');
       const blob = new Blob([data.buffer], { type: 'video/mp4' });
@@ -116,6 +123,13 @@ export default function HevcToMp4() {
       console.error('Error converting HEVC to MP4:', error);
       alert('Failed to convert video. Ensure the file is valid HEVC/H.265.');
     } finally {
+      try {
+        const ffmpeg = ffmpegRef.current;
+        if (typeof ffmpeg.deleteFile === 'function') {
+          await ffmpeg.deleteFile('input_hevc_video');
+          await ffmpeg.deleteFile('output.mp4');
+        }
+      } catch (e) {}
       setIsProcessing(false);
       setProgress(0);
     }
