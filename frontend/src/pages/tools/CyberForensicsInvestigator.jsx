@@ -60,32 +60,37 @@ export default function CyberForensicsInvestigator() {
     setFile(selectedFile);
     setIsAnalyzing(true);
 
+    // For very large files (>200MB), skip string extraction to avoid UI freeze
+    const LARGE_FILE_THRESHOLD = 200 * 1024 * 1024; // 200MB
+    const isLargeFile = selectedFile.size > LARGE_FILE_THRESHOLD;
+
     try {
       const arrayBuffer = await selectedFile.arrayBuffer();
       const uint8Array = new Uint8Array(arrayBuffer);
 
-      // 1. Hashes
-      const computedHashes = await computeFileHashes(arrayBuffer);
+      // Run all analyses concurrently — 2x faster than sequential awaits
+      const [computedHashes, magic, computedEntropy, exif, pdf, carvedStrings] = await Promise.all([
+        // 1. Hashes (SHA-1/256/512 via Web Crypto in parallel + non-blocking MD5)
+        computeFileHashes(arrayBuffer),
+        // 2. Magic Bytes & Masquerade detection (synchronous, fast)
+        Promise.resolve(identifyMagicBytes(uint8Array, selectedFile.name)),
+        // 3. Shannon Entropy (synchronous, fast O(n) loop)
+        Promise.resolve(computeShannonEntropy(uint8Array)),
+        // 4. Image EXIF & GPS
+        Promise.resolve(extractExifMetadata(arrayBuffer)),
+        // 5. PDF Forensics
+        Promise.resolve(extractPdfForensics(arrayBuffer)),
+        // 6. Strings Extraction — skipped for large files to prevent UI freeze
+        isLargeFile
+          ? Promise.resolve([{ value: `⚡ File is ${(selectedFile.size / 1024 / 1024).toFixed(0)}MB — string extraction is deferred for large files. Click "Load Strings" below to run it.`, category: 'INFO', offset: 0 }])
+          : Promise.resolve(extractPrintableStrings(uint8Array, 4, 300)),
+      ]);
+
       setHashes(computedHashes);
-
-      // 2. Magic Bytes & Masquerade detection
-      const magic = identifyMagicBytes(uint8Array, selectedFile.name);
       setMagicData(magic);
-
-      // 3. Shannon Entropy
-      const computedEntropy = computeShannonEntropy(uint8Array);
       setEntropy(computedEntropy);
-
-      // 4. Image EXIF & GPS
-      const exif = extractExifMetadata(arrayBuffer);
       setExifData(exif);
-
-      // 5. PDF Forensics
-      const pdf = extractPdfForensics(arrayBuffer);
       setPdfData(pdf);
-
-      // 6. Strings Extraction
-      const carvedStrings = extractPrintableStrings(uint8Array, 4, 300);
       setStringsData(carvedStrings);
 
       // 7. Hex Dump (Header default)

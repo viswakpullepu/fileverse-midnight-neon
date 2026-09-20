@@ -108,14 +108,13 @@ export default function BatchPhotoStudio({ files = [], onRemoveFile, onAddMore, 
       } else {
         const zip = new JSZip();
         let processedBytesTotal = 0;
+        let completedCount = 0;
 
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i];
-          setStatusText(`Processing photo ${i + 1} of ${files.length}: ${file.name}...`);
-          setProgress(Math.round(((i) / files.length) * 90));
+        // Concurrency pool: process up to 4 images simultaneously
+        const CONCURRENCY = 4;
 
+        const processOneImage = async (file) => {
           const bitmap = await createImageBitmap(file);
-          const canvas = document.createElement('canvas');
 
           let outWidth = bitmap.width;
           let outHeight = bitmap.height;
@@ -145,6 +144,7 @@ export default function BatchPhotoStudio({ files = [], onRemoveFile, onAddMore, 
             outQuality = 0.95;
           }
 
+          const canvas = document.createElement('canvas');
           canvas.width = outWidth;
           canvas.height = outHeight;
           const ctx = canvas.getContext('2d', { alpha: outMime !== 'image/jpeg', desynchronized: true });
@@ -157,15 +157,24 @@ export default function BatchPhotoStudio({ files = [], onRemoveFile, onAddMore, 
           ctx.drawImage(bitmap, 0, 0, outWidth, outHeight);
           bitmap.close();
 
-          const blob = await new Promise((res) => {
-            canvas.toBlob(res, outMime, outQuality);
-          });
+          const blob = await new Promise((res) => canvas.toBlob(res, outMime, outQuality));
+          return { file, blob, outExt };
+        };
 
-          if (blob) {
-            processedBytesTotal += blob.size;
-            const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
-            const cleanName = `${baseName}_edited.${outExt}`;
-            zip.file(cleanName, blob);
+        // Process files in concurrent batches of CONCURRENCY
+        for (let batchStart = 0; batchStart < files.length; batchStart += CONCURRENCY) {
+          const batch = files.slice(batchStart, batchStart + CONCURRENCY);
+          const results = await Promise.all(batch.map(processOneImage));
+
+          for (const { file, blob, outExt } of results) {
+            if (blob) {
+              processedBytesTotal += blob.size;
+              const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+              zip.file(`${baseName}_edited.${outExt}`, blob);
+            }
+            completedCount++;
+            setProgress(Math.round((completedCount / files.length) * 90));
+            setStatusText(`Processed ${completedCount} of ${files.length} photos...`);
           }
         }
 

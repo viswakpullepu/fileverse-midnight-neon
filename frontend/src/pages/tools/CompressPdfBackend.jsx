@@ -76,6 +76,9 @@ export default function CompressPdfBackend() {
         setProgress(Math.round(5 + (i / totalPages) * 80));
 
         const page = await pdf.getPage(i);
+        // Prefetch next page while current one renders (hides pdfjs decode latency)
+        const nextPagePromise = i < totalPages ? pdf.getPage(i + 1) : null;
+
         const viewport = page.getViewport({ scale: settings.scale });
 
         const canvas = document.createElement('canvas');
@@ -88,8 +91,11 @@ export default function CompressPdfBackend() {
           viewport: viewport,
         }).promise;
 
-        const jpegDataUrl = canvas.toDataURL('image/jpeg', settings.quality);
-        const jpegImageBytes = await fetch(jpegDataUrl).then(res => res.arrayBuffer());
+        // Direct canvas.toBlob — avoids slow toDataURL base64 round-trip
+        const jpegBlob = await new Promise((resolve) =>
+          canvas.toBlob(resolve, 'image/jpeg', settings.quality)
+        );
+        const jpegImageBytes = await jpegBlob.arrayBuffer();
 
         const embeddedImage = await outputPdfDoc.embedJpg(jpegImageBytes);
         const newPage = outputPdfDoc.addPage([page.view[2] - page.view[0], page.view[3] - page.view[1]]);
@@ -100,6 +106,9 @@ export default function CompressPdfBackend() {
           width: newPage.getWidth(),
           height: newPage.getHeight(),
         });
+
+        // Yield prefetched next page back to loop (already resolving in background)
+        if (nextPagePromise) await nextPagePromise;
       }
 
       setStatusText('Optimizing PDF structure...');
